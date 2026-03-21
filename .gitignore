@@ -1,0 +1,58 @@
+# Folder view configuration files
+.DS_Store
+Desktop.ini
+
+# Visual Studio Code User Settings
+.vscode/settings.json
+*.code-workspace
+
+# eclipse
+.project
+.settings
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+
+# Jetbrains
+/.idea
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Dependency directories
+node_modules/
+
+# Node logs produced by profiling
+logs
+*.log
+
+# Lock file for badge-maker
+badge-maker/package-lock.json
+
+# Temporary build artifacts.
+frontend/categories/*.yaml
+
+# Local runtime configuration.
+/config/local*.yml
+
+# Template for the local runtime configuration.
+!/config/local*.template.yml
+
+# Cypress
+/cypress/videos/
+/cypress/screenshots/
+
+# Rendered API docs
+/api-docs/
+
+# Flamebearer
+flamegraph.html
+
+# config file for node-pg-migrate
+migrations-config.json
+
+# Frontend/Docusaurus
+frontend/.docusaurus
+frontend/.cache-loader
+/public

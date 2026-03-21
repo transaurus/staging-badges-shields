@@ -1,0 +1,12 @@
+node_modules/
+.git/
+.gitignore
+.github
+.vscode/
+fly.toml
+
+*.md
+doc/
+
+# Improve layer cacheability.
+Dockerfile
