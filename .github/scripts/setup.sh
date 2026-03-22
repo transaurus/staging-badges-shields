@@ -39,3 +39,21 @@ npm install --legacy-peer-deps
 npx docusaurus write-translations frontend
 
 echo "SUCCESS: i18n files written"
+
+# Generate OpenAPI category YAML files (required by docusaurus-preset-openapi)
+# The frontend/categories/ dir is referenced as the api path in docusaurus.config.cjs
+# The full "npm run build" also runs this via the "defs" step
+node scripts/export-openapi-cli.js
+
+# Build the Docusaurus site — matches "docusaurus:build" script in package.json
+# --out-dir ../public puts output in the repo root's public/ directory
+npx docusaurus build frontend --out-dir ../public
+
+# Verify build output
+if [ -d "public" ] && [ -f "public/index.html" ]; then
+  echo "SUCCESS: build/ output verified at public/index.html"
+else
+  echo "ERROR: build output not found"
+  ls -la public/ 2>/dev/null || echo "public/ dir missing"
+  exit 1
+fi
