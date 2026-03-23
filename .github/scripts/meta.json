@@ -1,0 +1,9 @@
+{
+  "sourceUrl": "https://github.com/badges/shields",
+  "branch": "master",
+  "docusaurusRoot": ".",
+  "translateCommand": "./node_modules/.bin/docusaurus write-translations frontend",
+  "buildCommand": "npm run build",
+  "buildOutput": "public",
+  "packageManager": "npm"
+}
