@@ -55,4 +55,3 @@ migrations-config.json
 # Frontend/Docusaurus
 frontend/.docusaurus
 frontend/.cache-loader
-/public
