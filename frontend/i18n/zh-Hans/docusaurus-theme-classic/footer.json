@@ -1,0 +1,50 @@
+{
+  "link.title.Community": {
+    "message": "Community",
+    "description": "The title of the footer links column with title=Community in the footer"
+  },
+  "link.title.Stats": {
+    "message": "Stats",
+    "description": "The title of the footer links column with title=Stats in the footer"
+  },
+  "link.title.Policy": {
+    "message": "Policy",
+    "description": "The title of the footer links column with title=Policy in the footer"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/badges/shields"
+  },
+  "link.item.label.Open Collective": {
+    "message": "Open Collective",
+    "description": "The label of footer link with label=Open Collective linking to https://opencollective.com/shields"
+  },
+  "link.item.label.Discord": {
+    "message": "Discord",
+    "description": "The label of footer link with label=Discord linking to https://discord.gg/HjJCwm5"
+  },
+  "link.item.label.Awesome Badges": {
+    "message": "Awesome Badges",
+    "description": "The label of footer link with label=Awesome Badges linking to https://github.com/badges/awesome-badges"
+  },
+  "link.item.label.Service Status (Upptime)": {
+    "message": "Service Status (Upptime)",
+    "description": "The label of footer link with label=Service Status (Upptime) linking to https://badges.github.io/uptime-monitoring/"
+  },
+  "link.item.label.Service Status (NodePing)": {
+    "message": "Service Status (NodePing)",
+    "description": "The label of footer link with label=Service Status (NodePing) linking to https://nodeping.com/reports/status/YBISBQB254"
+  },
+  "link.item.label.Metrics dashboard": {
+    "message": "Metrics dashboard",
+    "description": "The label of footer link with label=Metrics dashboard linking to https://metrics.shields.io/"
+  },
+  "link.item.label.Privacy Policy": {
+    "message": "Privacy Policy",
+    "description": "The label of footer link with label=Privacy Policy linking to /privacy"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Shields.io. Built with Docusaurus.",
+    "description": "The footer copyright"
+  }
+}
