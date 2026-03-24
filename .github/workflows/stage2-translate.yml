@@ -156,7 +156,7 @@ jobs:
           # Force-add build output
           for dirname in build public dist out "$BUILD_OUTPUT"; do
             find . -name "$dirname" -type d -maxdepth 4 -not -path "./.git/*" | while read d; do
-              [ -f "$d/index.html" ] && git add -f "$d/"
+              [ -f "$d/index.html" ] && git add -f "$d/" || true
             done
           done
           if ! git diff --staged --quiet; then
