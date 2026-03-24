@@ -39,18 +39,14 @@ jobs:
       - name: 'Add i18n locale config'
         run: |
           LOCALES="${{ github.event.inputs.locales }}"
-          DOC_ROOT="${{ steps.meta.outputs.docusaurusRoot }}"
-          CONFIG_FILE=""
-          for ext in js ts mjs cjs; do
-            [ -f "${DOC_ROOT}/docusaurus.config.${ext}" ] && CONFIG_FILE="${DOC_ROOT}/docusaurus.config.${ext}" && break
-          done
+          
+          # Find docusaurus config file anywhere in the repo
+          CONFIG_FILE=$(find . -name "docusaurus.config.*" -not -path "./node_modules/*" -not -path "./.git/*" | head -1)
+          
           if [ -z "$CONFIG_FILE" ]; then
-            # Try without DOC_ROOT
-            for ext in js ts mjs cjs; do
-              [ -f "docusaurus.config.${ext}" ] && CONFIG_FILE="docusaurus.config.${ext}" && break
-            done
+            echo "ERROR: No docusaurus.config found"
+            exit 1
           fi
-          [ -z "$CONFIG_FILE" ] && echo "ERROR: No docusaurus config found" && exit 1
           echo "Config: $CONFIG_FILE"
           
           LOCALE_ARRAY=$(echo "$LOCALES" | tr ',' '\n' | sed "s/.*/'&'/" | tr '\n' ',' | sed 's/,$//')
@@ -60,10 +56,17 @@ jobs:
             const fs = require('fs');
             let c = fs.readFileSync('$CONFIG_FILE', 'utf8');
             const i18n = \"\n  i18n: { defaultLocale: 'en', locales: ['en', ${LOCALE_ARRAY}] },\";
-            for (const p of [/(module\.exports\s*=\s*\{)/, /(export\s+default\s*\{)/, /(const\s+config\s*[:=]\s*\{)/]) {
+            const patterns = [
+              /(module\.exports\s*=\s*\{)/,
+              /(export\s+default\s*\{)/,
+              /(const\s+config\s*[:=]\s*\{)/,
+            ];
+            let done = false;
+            for (const p of patterns) {
               const m = c.match(p);
-              if (m) { c = c.slice(0, m.index + m[0].length) + i18n + c.slice(m.index + m[0].length); break; }
+              if (m) { c = c.slice(0, m.index + m[0].length) + i18n + c.slice(m.index + m[0].length); done = true; break; }
             }
+            if (!done) { console.log('WARNING: Could not find config pattern, trying first {'); const i = c.indexOf('{'); if (i >= 0) c = c.slice(0,i+1) + i18n + c.slice(i+1); }
             fs.writeFileSync('$CONFIG_FILE', c);
             console.log('Injected i18n config');
             "
@@ -73,25 +76,28 @@ jobs:
 
       - name: 'Place translated files (placeholder copies)'
         run: |
-          DOC_ROOT="${{ steps.meta.outputs.docusaurusRoot }}"
+          # Find where i18n/en lives
+          I18N_EN=$(find . -path "*/i18n/en" -type d -not -path "./node_modules/*" | head -1)
+          I18N_BASE=$(dirname "$I18N_EN" 2>/dev/null)  # parent of en = i18n dir
+          
+          # Find where docs live
+          DOCS_DIR=$(find . -name "docs" -type d -maxdepth 3 -not -path "./node_modules/*" -not -path "./.git/*" -not -path "*/i18n/*" -not -path "*/build/*" | head -1)
+          
+          echo "i18n base: $I18N_BASE"
+          echo "docs dir: $DOCS_DIR"
+          
           for LOCALE in $(echo "${{ github.event.inputs.locales }}" | tr ',' ' '); do
             echo "Setting up locale: $LOCALE"
-            # Copy i18n JSON files
-            SRC_I18N="${DOC_ROOT}/i18n/en"
-            [ ! -d "$SRC_I18N" ] && SRC_I18N="i18n/en"
-            if [ -d "$SRC_I18N" ]; then
-              DST_I18N="${DOC_ROOT}/i18n/${LOCALE}"
-              [ "$DOC_ROOT" = "." ] && DST_I18N="i18n/${LOCALE}"
-              mkdir -p "$DST_I18N"
-              cp -r "$SRC_I18N/"* "$DST_I18N/"
-              echo "  Copied $(find "$DST_I18N" -name '*.json' | wc -l) JSON files"
+            
+            if [ -n "$I18N_EN" ] && [ -d "$I18N_EN" ]; then
+              DST="$I18N_BASE/$LOCALE"
+              mkdir -p "$DST"
+              cp -r "$I18N_EN/"* "$DST/"
+              echo "  Copied $(find "$DST" -name '*.json' | wc -l) i18n JSON files"
             fi
-            # Copy docs
-            DOCS_DIR="${DOC_ROOT}/docs"
-            [ ! -d "$DOCS_DIR" ] && DOCS_DIR="docs"
-            if [ -d "$DOCS_DIR" ]; then
-              TARGET="${DOC_ROOT}/i18n/${LOCALE}/docusaurus-plugin-content-docs/current"
-              [ "$DOC_ROOT" = "." ] && TARGET="i18n/${LOCALE}/docusaurus-plugin-content-docs/current"
+            
+            if [ -n "$DOCS_DIR" ] && [ -d "$DOCS_DIR" ]; then
+              TARGET="$I18N_BASE/$LOCALE/docusaurus-plugin-content-docs/current"
               mkdir -p "$TARGET"
               cp -r "$DOCS_DIR/"* "$TARGET/"
               echo "  Copied $(find "$TARGET" -type f | wc -l) doc files"
@@ -104,7 +110,6 @@ jobs:
             chmod +x .github/scripts/rebuild.sh
             bash .github/scripts/rebuild.sh
           else
-            echo "No rebuild.sh, using meta.json"
             if [ -f "pnpm-lock.yaml" ]; then
               npm install -g pnpm && pnpm install --no-frozen-lockfile
             elif [ -f "yarn.lock" ]; then
@@ -115,30 +120,44 @@ jobs:
             ${{ steps.meta.outputs.buildCommand }}
           fi
 
-      - name: 'Verify build'
+      - name: 'Verify and commit'
         run: |
           BUILD_OUTPUT="${{ steps.meta.outputs.buildOutput }}"
-          if [ -d "$BUILD_OUTPUT" ]; then
-            TOTAL=$(find "$BUILD_OUTPUT" -type f | wc -l)
-            echo "Build: $TOTAL files total"
+          echo "Build output dir: $BUILD_OUTPUT"
+          
+          # Find actual build output
+          BUILD_DIR=""
+          for d in "$BUILD_OUTPUT" "build" "public" "dist"; do
+            if [ -d "$d" ] && [ -f "$d/index.html" ]; then
+              BUILD_DIR="$d"
+              break
+            fi
+          done
+          # Also check subdirs
+          if [ -z "$BUILD_DIR" ]; then
+            BUILD_DIR=$(find . -name "index.html" -path "*/$BUILD_OUTPUT/*" -not -path "./node_modules/*" -exec dirname {} \; | head -1)
+          fi
+          
+          if [ -n "$BUILD_DIR" ]; then
+            TOTAL=$(find "$BUILD_DIR" -type f | wc -l)
+            echo "Build: $TOTAL files in $BUILD_DIR"
             for LOCALE in $(echo "${{ github.event.inputs.locales }}" | tr ',' ' '); do
-              if [ -d "$BUILD_OUTPUT/$LOCALE" ]; then
-                echo "  $LOCALE: $(find "$BUILD_OUTPUT/$LOCALE" -type f | wc -l) files"
+              if [ -d "$BUILD_DIR/$LOCALE" ]; then
+                echo "  $LOCALE: $(find "$BUILD_DIR/$LOCALE" -type f | wc -l) files"
               fi
             done
           else
-            echo "WARNING: $BUILD_OUTPUT not found"
-            find . -name "index.html" -path "*build*" -o -name "index.html" -path "*public*" 2>/dev/null | head -5
+            echo "WARNING: No build output found"
           fi
-
-      - name: 'Commit'
-        run: |
-          BUILD_OUTPUT="${{ steps.meta.outputs.buildOutput }}"
+          
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
-          find . -name "$BUILD_OUTPUT" -type d -maxdepth 4 -not -path "./.git/*" | while read d; do
-            [ -f "$d/index.html" ] && git add -f "$d/"
+          # Force-add build output
+          for dirname in build public dist out "$BUILD_OUTPUT"; do
+            find . -name "$dirname" -type d -maxdepth 4 -not -path "./.git/*" | while read d; do
+              [ -f "$d/index.html" ] && git add -f "$d/"
+            done
           done
           if ! git diff --staged --quiet; then
             git commit --no-verify -m "Stage 2: translations (${{ github.event.inputs.locales }})"
