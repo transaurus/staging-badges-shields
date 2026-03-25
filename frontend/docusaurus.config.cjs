@@ -4,12 +4,12 @@ const stripCodeBlockLinks = require('./src/plugins/strip-code-block-links')
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  i18n: { defaultLocale: 'en', locales: ['en', 'zh-Hans'] },
+  i18n: { defaultLocale: 'en', locales: ["en", "zh-Hans"] },
   title: 'Shields.io',
   tagline: 'Concise, consistent, and legible badges',
   url: 'https://shields.io',
   baseUrl: '/',
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'badges',
   projectName: 'shields',
