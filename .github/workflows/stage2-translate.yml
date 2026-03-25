@@ -56,66 +56,39 @@ jobs:
           echo "Config file: $CONFIG_FILE"
           echo "Locales: $LOCALES"
 
-          # Write the config injection script to a temp file to avoid quoting issues
-          cat > /tmp/inject-i18n.js << 'SCRIPT_EOF'
-          const fs = require('fs');
-          const configFile = process.env.CONFIG_FILE;
-          const locales = process.env.LOCALES.split(',').map(s => s.trim());
-
-          let content = fs.readFileSync(configFile, 'utf8');
-
-          // Check if there's already an i18n property in the config object
-          const hasI18n = /\bi18n\s*[:=]\s*\{/.test(content);
-
-          if (hasI18n) {
-            // Update existing locales array
-            const localesStr = "['en', " + locales.map(l => "'" + l + "'").join(', ') + "]";
-            const replaced = content.replace(
-              /locales\s*:\s*\[[^\]]*\]/,
-              'locales: ' + localesStr
-            );
-            if (replaced !== content) {
-              content = replaced;
-              console.log('Updated existing i18n.locales');
-            } else {
-              console.log('WARNING: i18n block exists but could not update locales');
-            }
-          } else {
-            // Inject new i18n config
-            const localesList = locales.map(l => "'" + l + "'").join(', ');
-            const i18nConfig = `\n  i18n: {\n    defaultLocale: 'en',\n    locales: ['en', ${localesList}],\n  },`;
-
-            const patterns = [
-              /(module\.exports\s*=\s*\{)/,
-              /(export\s+default\s*\{)/,
-              /(const\s+config\s*[:=]\s*\{)/,
-            ];
-
-            let injected = false;
-            for (const pattern of patterns) {
-              const match = content.match(pattern);
-              if (match) {
-                const idx = match.index + match[0].length;
-                content = content.slice(0, idx) + i18nConfig + content.slice(idx);
-                injected = true;
-                console.log('Injected i18n config after:', match[0]);
-                break;
-              }
-            }
-            if (!injected) {
-              const fb = content.indexOf('{');
-              if (fb >= 0) {
-                content = content.slice(0, fb + 1) + i18nConfig + content.slice(fb + 1);
-                console.log('Injected i18n config at first {');
-              }
-            }
-          }
-
-          fs.writeFileSync(configFile, content);
-          SCRIPT_EOF
-
+          # Write config injection script to temp file (avoids quoting issues)
+          cat > /tmp/inject-i18n.js <<'SCRIPTEOF'
+const fs = require('fs');
+const configFile = process.env.CONFIG_FILE;
+const locales = process.env.LOCALES.split(',').map(s => s.trim());
+let content = fs.readFileSync(configFile, 'utf8');
+const hasI18n = /\bi18n\s*[:=]\s*\{/.test(content);
+if (hasI18n) {
+  const localesStr = "['en', " + locales.map(l => "'" + l + "'").join(', ') + "]";
+  const replaced = content.replace(/locales\s*:\s*\[[^\]]*\]/, 'locales: ' + localesStr);
+  if (replaced !== content) { content = replaced; console.log('Updated existing i18n.locales'); }
+  else { console.log('WARNING: i18n block exists but could not update locales'); }
+} else {
+  const localesList = locales.map(l => "'" + l + "'").join(', ');
+  const i18nConfig = '\n  i18n: {\n    defaultLocale: "en",\n    locales: ["en", ' + localesList + '],\n  },';
+  const patterns = [/(module\.exports\s*=\s*\{)/, /(export\s+default\s*\{)/, /(const\s+config\s*[:=]\s*\{)/];
+  let injected = false;
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      const idx = match.index + match[0].length;
+      content = content.slice(0, idx) + i18nConfig + content.slice(idx);
+      injected = true; console.log('Injected i18n config after:', match[0]); break;
+    }
+  }
+  if (!injected) {
+    const fb = content.indexOf('{');
+    if (fb >= 0) { content = content.slice(0, fb + 1) + i18nConfig + content.slice(fb + 1); }
+  }
+}
+fs.writeFileSync(configFile, content);
+SCRIPTEOF
           CONFIG_FILE="$CONFIG_FILE" LOCALES="$LOCALES" node /tmp/inject-i18n.js
-          fi
 
       - name: 'Place translated files (placeholder — JSON only, no docs copy)'
         run: |
@@ -139,30 +112,27 @@ jobs:
               cp -r "${DOC_ROOT}/i18n/en/"* "${DOC_ROOT}/i18n/${LOCALE}/"
 
               # Strip ICU plural/select forms to avoid locale validation failures
-              cat > /tmp/strip-icu.js << 'ICU_EOF'
-              const fs = require('fs');
-              const file = process.argv[2];
-              try {
-                const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-                let changed = false;
-                for (const [key, val] of Object.entries(data)) {
-                  if (typeof val === 'object' && val.message) {
-                    const stripped = val.message.replace(
-                      /\{[^,}]+,\s*(?:plural|select|selectordinal)\s*,\s*(?:(?:zero|one|two|few|many|=\d+)\s*\{[^}]*\}\s*)*other\s*\{([^}]*)\}\s*\}/g,
-                      '$1'
-                    );
-                    if (stripped !== val.message) {
-                      val.message = stripped;
-                      changed = true;
-                    }
-                  }
-                }
-                if (changed) {
-                  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
-                  console.log('  Fixed ICU plurals:', file);
-                }
-              } catch(e) {}
-              ICU_EOF
+              cat > /tmp/strip-icu.js <<'ICUEOF'
+const fs = require('fs');
+const file = process.argv[2];
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  let changed = false;
+  for (const [key, val] of Object.entries(data)) {
+    if (typeof val === 'object' && val.message) {
+      const stripped = val.message.replace(
+        /\{[^,}]+,\s*(?:plural|select|selectordinal)\s*,\s*(?:(?:zero|one|two|few|many|=\d+)\s*\{[^}]*\}\s*)*other\s*\{([^}]*)\}\s*\}/g,
+        '$1'
+      );
+      if (stripped !== val.message) { val.message = stripped; changed = true; }
+    }
+  }
+  if (changed) {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
+    console.log('  Fixed ICU plurals:', file);
+  }
+} catch(e) {}
+ICUEOF
               find "${DOC_ROOT}/i18n/${LOCALE}" -name '*.json' -exec node /tmp/strip-icu.js {} \;
 
               echo "  Placed $(find "${DOC_ROOT}/i18n/${LOCALE}" -name '*.json' | wc -l) JSON files"
